@@ -1,5 +1,6 @@
 var createError = require('http-errors');
 var express = require('express');
+const mongoose = require('mongoose'); // added mongoose client - nodupe
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
@@ -9,6 +10,23 @@ var usersRouter = require('./routes/users');
 const campsiteRouter = require('./routes/campsiteRouter');
 const promotionRouter = require('./routes/promotionRouter');
 const partnerRouter = require('./routes/partnerRouter');
+
+// route for mongoose
+const url = 'mongodb://localhost:27017/nucampsite';
+
+// mongoose props set
+const connect = mongoose.connect(url, {
+  useCreateIndex: true,
+  useFindAndModify: false,
+  useNewUrlParser: true, 
+  useUnifiedTopology: true
+});
+
+// on good/bad connect - promise/reject
+connect.then(() => console.log('Connected correctly to server'), 
+  err => console.log(err)
+);
+
 
 var app = express();
 
