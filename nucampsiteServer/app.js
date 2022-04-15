@@ -1,9 +1,9 @@
-var createError = require('http-errors');
-var express = require('express');
+const createError = require('http-errors');
+const express = require('express');
 const mongoose = require('mongoose'); // added mongoose client - nodupe
-var path = require('path');
+const path = require('path');
 // var cookieParser = require('cookie-parser');
-var logger = require('morgan');
+const logger = require('morgan');
 
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
@@ -51,32 +51,22 @@ app.use(session({ // data passed to the session
   store: new FileStore()
 }));
 
+//  want any user(non-auth'd) to be able to land on the home page an use the USER route 
+//      prior to needing to log in/acct creation 
+app.use('/', indexRouter);
+app.use('/users', usersRouter);
+
 // authentication - here to auth before accessing info on the server
 function auth(req, res, next) {
     console.log(req.session);
     if(!req.session.user) {
-      const authHeader = req.headers.authorization;
-      
-      if(!authHeader) {
-        const err = new Error("You are not Authenticated!");
-        res.setHeader("WWW-Authenticate", "Basic");
-        err.status = 401;
-        return next(err);
-      }
-      const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
-      const user = auth[0];
-      const pass = auth[1];
-      if(user === 'admin' && pass === 'password') {
-        req.session.user = 'admin';
-        return next(); // is authorized pass/fail - for now
-      } else {
-        const err = new Error('You are not Authenticated!');
-        res.setHeader('WWW-Authenticate', 'Basic');
-        err.status = 401;
-        return next(err);
-      }
+      // client not auth'd/session - use the error
+      const err = new Error("You are not Authenticated!");
+      err.status = 401;
+      return next(err);
+
     } else {
-      if(req.session.user === 'admin') {
+      if(req.session.user === 'authenticated') {
         return next();
       } else {
         const err = new Error('You are not Authenticated!');
@@ -90,9 +80,6 @@ app.use(auth);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
 app.use('/campsites', campsiteRouter);
 app.use('/promotions', promotionRouter);
 app.use('/partners', partnerRouter);
