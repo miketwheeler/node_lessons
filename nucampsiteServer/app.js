@@ -2,14 +2,14 @@ const createError = require('http-errors');
 const express = require('express');
 const mongoose = require('mongoose'); // added mongoose client - nodupe
 const path = require('path');
-// var cookieParser = require('cookie-parser');
 const logger = require('morgan');
-
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
+const passport = require('passport');
+const authenticate = require('./authenticate');
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+const indexRouter = require('./routes/index');
+const usersRouter = require('./routes/users');
 const campsiteRouter = require('./routes/campsiteRouter');
 const promotionRouter = require('./routes/promotionRouter');
 const partnerRouter = require('./routes/partnerRouter');
@@ -42,7 +42,6 @@ app.set('view engine', 'jade');
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-// app.use(cookieParser('12345-67890-09876-54321'));
 app.use(session({ // data passed to the session
   name: 'session-id',
   secret: '12345-67890-09876-54321',
@@ -51,6 +50,8 @@ app.use(session({ // data passed to the session
   store: new FileStore()
 }));
 
+app.use(passport.initialize());
+app.use(passport.session());
 //  want any user(non-auth'd) to be able to land on the home page an use the USER route 
 //      prior to needing to log in/acct creation 
 app.use('/', indexRouter);
@@ -58,21 +59,15 @@ app.use('/users', usersRouter);
 
 // authentication - here to auth before accessing info on the server
 function auth(req, res, next) {
-    console.log(req.session);
-    if(!req.session.user) {
-      // client not auth'd/session - use the error
+    console.log(req.user);
+    // client not auth'd/in-session? - throw error
+    if(!req.user) {
       const err = new Error("You are not Authenticated!");
       err.status = 401;
       return next(err);
-
-    } else {
-      if(req.session.user === 'authenticated') {
-        return next();
-      } else {
-        const err = new Error('You are not Authenticated!');
-        err.status = 401;
-        return next(err);
-      }
+    } 
+    else {
+      return next();
     }
 }
 
