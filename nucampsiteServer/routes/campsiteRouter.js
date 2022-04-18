@@ -6,7 +6,7 @@ const authenticate = require('../authenticate');
 const campsiteRouter = express.Router();
 
 
-// all campsites - CRUD-ish
+// all campsites 
 // remove the 'all' method - only need to explicitly set each
 campsiteRouter.route('/')
 .get((req, res, next) => {
@@ -19,7 +19,7 @@ campsiteRouter.route('/')
     })
     .catch(err => next(err));
 })
-.post(authenticate.verifyUser, (req, res, next) => {
+.post(authenticate.verifyUser, authenticate.verifyAdmin, (req, res, next) => {
     Campsite.create(req.body)
     .then(campsite => {
         req.body.author = req.user._id;
@@ -35,7 +35,7 @@ campsiteRouter.route('/')
     res.statusCode = 403;
     res.end('PUT operation not supported on /campsites');
 })
-.delete(authenticate.verifyUser, (req, res, next) => {
+.delete(authenticate.verifyUser, authenticate.verifyAdmin, (req, res, next) => {
     Campsite.deleteMany() // since no param - deletes all - need auth & param in future
     .then(response => {
         res.statusCode = 200;
@@ -45,10 +45,10 @@ campsiteRouter.route('/')
     .catch(err => next(err));
 });
 
-// specific campsite (byID) - CRUD-ish
+// specific campsite (byID) 
 campsiteRouter.route('/:campsiteId')
 .get((req, res, next) => {
-    Campsite.findById(req.params.campsiteId) // since no param - deletes all - need auth & param in future
+    Campsite.findById(req.params.campsiteId) 
     .populate('comments.author')
     .then(campsite => {
         res.statusCode = 200;
@@ -61,10 +61,10 @@ campsiteRouter.route('/:campsiteId')
     res.statusCode = 403; // not allowed
     res.end(`POST operation not supported on /campsites/${req.params.campsiteId}`);
 })
-.put(authenticate.verifyUser, (req, res, next) => {
+.put(authenticate.verifyUser, authenticate.verifyAdmin, (req, res, next) => {
     Campsite.findByIdAndUpdate(req.params.campsiteId, {
         $set: req.body
-    }, { new: true }) // since no param - deletes all - need auth & param in future
+    }, { new: true }) 
     .then(campsite => {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
@@ -72,8 +72,8 @@ campsiteRouter.route('/:campsiteId')
     })
     .catch(err => next(err));
 })
-.delete(authenticate.verifyUser, (req, res, next) => {
-    Campsite.findByIdAndDelete(req.params.campsiteId) // since no param - deletes all - need auth & param in future
+.delete(authenticate.verifyUser, authenticate.verifyAdmin, (req, res, next) => {
+    Campsite.findByIdAndDelete(req.params.campsiteId)
     .then(response => {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
@@ -83,7 +83,7 @@ campsiteRouter.route('/:campsiteId')
 })
 ///////////////////////////////////////////////////////////////////
 // ////////////////////////////////////////////////////////////////
-// all comments for a campsite - CRUD-ish
+// all comments for a campsite 
 campsiteRouter.route('/:campsiteId/comments')
 .get((req, res, next) => {
     Campsite.findById(req.params.campsiteId)
@@ -106,6 +106,7 @@ campsiteRouter.route('/:campsiteId/comments')
     .then(campsite => {
         // update this campsite's comments if found
         if (campsite) {
+            req.body.author = req.user._id;
             campsite.comments.push(req.body);
             campsite.save()
             .then(campsite => {
@@ -126,7 +127,7 @@ campsiteRouter.route('/:campsiteId/comments')
     res.statusCode = 403;
     res.end(`PUT operation not supported on /campsites/${req.params.campsiteId}/comments`);
 })
-.delete(authenticate.verifyUser, (req, res, next) => {
+.delete(authenticate.verifyUser, authenticate.verifyAdmin, (req, res, next) => {
     Campsite.findById(req.params.campsiteId)
     .then(campsite => {
         if (campsite) {
@@ -150,7 +151,7 @@ campsiteRouter.route('/:campsiteId/comments')
     .catch(err => next(err));
 });
 
-// a specific comment (byID) of a specified campsite (also byID)- CRUD-ish
+// a specific comment (byID) of a specified campsite (also byID)
 campsiteRouter.route('/:campsiteId/comments/:commentId')
 .get((req, res, next) => {
     Campsite.findById(req.params.campsiteId)
@@ -182,6 +183,11 @@ campsiteRouter.route('/:campsiteId/comments/:commentId')
     .then(campsite => {
         // update a comment & rating if found - both if it has an update to comment and/or rating within this campsite
         if (campsite && campsite.comments.id(req.params.commentId)) {
+            if(!req.user._id.equals(campsite.comments.id(req.params.commentId).author)){
+                const err = new Error("You are not the Author of this comment.");
+                err.status = 403;
+                throw err;
+            }
             if (req.body.rating) {
                 campsite.comments.id(req.params.commentId).rating = req.body.rating;
             }
@@ -212,6 +218,11 @@ campsiteRouter.route('/:campsiteId/comments/:commentId')
     .then(campsite => {
         // delete a comment within this campsite
         if (campsite && campsite.comments.id(req.params.commentId)) {
+            if(!req.user._id.equals(campsite.comments.id(req.params.commentId).author)){
+                const err = new Error("You are not the Author of this comment.");
+                err.status = 403;
+                throw err;
+            }
             campsite.comments.id(req.params.commentId).remove();
             campsite.save()
             .then(campsite => {
