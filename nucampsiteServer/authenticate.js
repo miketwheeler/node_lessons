@@ -8,6 +8,10 @@ const config = require('./config.js');
 
 // localstrategy compares against locally stored auth vals - passed a callback
 exports.local = passport.use(new LocalStrategy(User.authenticate()));
+
+// facebook strategy
+const FacebookTokenStrategy = require('passport-facebook-token');
+
 // grabbed user-data from the req obj - need to store session data via serialization
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
@@ -33,6 +37,37 @@ exports.jwtPassport = passport.use(
                     return done(null, user);
                 } else {
                     return done(null, false);
+                }
+            });
+        }
+    )
+);
+
+exports.facebookPassport = passport.use(
+    new FacebookTokenStrategy(
+        {
+            clientID: config.facebook.clientId,
+            clientSecret: config.facebook.clientSecret
+        }, 
+        (accessToken, refreshToken, profile, done) => {
+            User.findOne({facebookId: profile.id}, (err, user) => {
+                if (err) {
+                    return done(err, false);
+                }
+                if (!err && user) {
+                    return done(null, user);
+                } else {
+                    user = new User({ username: profile.displayName });
+                    user.facebookId = profile.id;
+                    user.firstname = profile.name.givenName;
+                    user.lastname = profile.name.familyName;
+                    user.save((err, user) => {
+                        if (err) {
+                            return done(err, false);
+                        } else {
+                            return done(null, user);
+                        }
+                    });
                 }
             });
         }
